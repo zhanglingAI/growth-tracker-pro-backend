@@ -1,0 +1,36 @@
+# Growth Tracker Pro 服务端配置
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  mode: "debug"  # debug, release, test
+
+database:
+  host: "localhost"
+  port: 3306
+  user: "root"
+  password: "password"
+  database: "growth_tracker"
+  charset: "utf8mb4"
+
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+  db: 0
+
+jwt:
+  secret: "growth-tracker-secret-key-change-in-production"
+  expire_time: 604800  # 7天，单位秒
+
+ai:
+  provider: "deepseek"  # deepseek, openai
+  api_key: ""  # 实际使用时填入API密钥
+  model: "deepseek-chat"
+  base_url: "https://api.deepseek.com"
+  max_tokens: 2000
+  temperature: 0.7
+
+wechat:
+  app_id: ""  # 微信小程序AppID
+  app_secret: ""  # 微信小程序AppSecret
