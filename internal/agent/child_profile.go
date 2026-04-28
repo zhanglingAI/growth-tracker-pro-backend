@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/growth-tracker-pro/backend/internal/models"
+	"github.com/growth-tracker-pro-backend/internal/models"
 )
 
 // ChildProfile 宝宝立体信息表 - 动态构建的宝宝全景画像
@@ -190,7 +190,7 @@ func (b *ProfileBuilder) buildBasicInfo(child *models.Child) BasicInfo {
 	months := (ageInDays % 365) / 30
 
 	return BasicInfo{
-		Name:         child.Name,
+		Name:         child.Nickname,
 		Gender:       child.Gender,
 		Birthday:     child.Birthday,
 		AgeInDays:    ageInDays,
@@ -272,16 +272,17 @@ func (b *ProfileBuilder) buildNutritionStatus(child *models.Child, records []mod
 	// 基于体重评估营养状态
 	if len(records) > 0 {
 		latest := records[len(records)-1]
-		bmi := latest.Weight / ((latest.Height / 100) * (latest.Height / 100))
-
-		if bmi < 18.5 {
-			status.Concerns = append(status.Concerns, "可能存在体重偏低或营养不足")
-			status.Score -= 15
-		} else if bmi > 24 {
-			status.Concerns = append(status.Concerns, "注意控制体重增长")
-			status.Score -= 10
-		} else {
-			status.Strengths = append(status.Strengths, "体重在正常范围内")
+		if latest.Weight != nil {
+			bmi := *latest.Weight / ((latest.Height / 100) * (latest.Height / 100))
+			if bmi < 18.5 {
+				status.Concerns = append(status.Concerns, "可能存在体重偏低或营养不足")
+				status.Score -= 15
+			} else if bmi > 24 {
+				status.Concerns = append(status.Concerns, "注意控制体重增长")
+				status.Score -= 10
+			} else {
+				status.Strengths = append(status.Strengths, "体重在正常范围内")
+			}
 		}
 	}
 
@@ -357,7 +358,7 @@ func (b *ProfileBuilder) assessHealthRisks(child *models.Child, records []models
 		prev := records[len(records)-2]
 
 		// 生长速度评估
-		daysDiff := int(latest.Date.Sub(prev.Date).Hours() / 24)
+		daysDiff := int(latest.MeasureDate.Sub(prev.MeasureDate).Hours() / 24)
 		if daysDiff > 0 {
 			heightDiff := latest.Height - prev.Height
 			annualVelocity := (heightDiff / float64(daysDiff)) * 365
@@ -435,7 +436,7 @@ func (b *ProfileBuilder) calculateGrowthTrend(records []models.Record) GrowthTre
 	latest := records[len(records)-1]
 	oldest := records[0]
 
-	daysDiff := int(latest.Date.Sub(oldest.Date).Hours() / 24)
+	daysDiff := int(latest.MeasureDate.Sub(oldest.MeasureDate).Hours() / 24)
 	if daysDiff > 30 {
 		heightDiff := latest.Height - oldest.Height
 		trend.Velocity = (heightDiff / float64(daysDiff)) * 365
@@ -543,7 +544,8 @@ func (b *ProfileBuilder) calculateTargetHeight(child *models.Child) models.Targe
 
 func (b *ProfileBuilder) calculatePercentile(record *models.Record, child *models.Child) int {
 	height := record.Height
-	ageInMonths := float64(record.AgeInDays) / 30.44
+	ageInDays := int(time.Since(child.Birthday).Hours() / 24)
+	ageInMonths := float64(ageInDays) / 30.44
 
 	var median50 float64
 	if child.Gender == "male" {
@@ -601,7 +603,7 @@ func (b *ProfileBuilder) assessMeasurementFrequency(records []models.Record) str
 	// 计算平均测量间隔
 	totalDays := 0
 	for i := 1; i < len(records); i++ {
-		totalDays += int(records[i].Date.Sub(records[i-1].Date).Hours() / 24)
+		totalDays += int(records[i].MeasureDate.Sub(records[i-1].MeasureDate).Hours() / 24)
 	}
 	avgDays := totalDays / (len(records) - 1)
 

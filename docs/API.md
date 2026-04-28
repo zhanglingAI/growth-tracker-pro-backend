@@ -16,7 +16,8 @@
 6. [家庭](#家庭)
 7. [AI](#ai)
 8. [首页](#首页)
-9. [支付回调](#支付回调)
+9. [医院](#医院)
+10. [支付回调](#支付回调)
 
 ---
 
@@ -719,6 +720,93 @@ Authorization: Bearer {token}
       "categories": ["01-15", "02-15", "03-15", "04-15"],
       "series": [{"name": "身高", "data": [100.0, 102.5, 105.0, 108.5]}]
     }
+  }
+}
+```
+
+---
+
+## 医院
+
+### 获取医院列表
+
+**请求**
+
+```http
+GET /api/v1/hospitals?city=北京&latitude=39.9&longitude=116.4&page=1&page_size=20
+Authorization: Bearer {token}
+```
+
+**响应**
+
+```json
+{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "items": [
+      {
+        "id": "hospital_001",
+        "name": "北京儿童医院",
+        "level": "三级甲等",
+        "address": "北京市西城区南礼士路1号",
+        "latitude": 39.9423,
+        "longitude": 116.3562,
+        "phone": "010-59616161",
+        "pediatric_endo": true,
+        "estimated_fee": "500-2000",
+        "city": "北京",
+        "district": "西城区",
+        "distance": 2.5
+      }
+    ],
+    "total": 50,
+    "page": 1,
+    "page_size": 20
+  }
+}
+```
+
+### 获取医院详情
+
+**请求**
+
+```http
+GET /api/v1/hospitals/:id
+Authorization: Bearer {token}
+```
+
+**响应**
+
+```json
+{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "id": "hospital_001",
+    "name": "北京儿童医院",
+    "level": "三级甲等",
+    "address": "北京市西城区南礼士路1号",
+    "latitude": 39.9423,
+    "longitude": 116.3562,
+    "phone": "010-59616161",
+    "logo": "https://xxx.com/logo.jpg",
+    "pediatric_endo": true,
+    "estimated_fee": "500-2000",
+    "city": "北京",
+    "district": "西城区",
+    "departments": [
+      {
+        "id": 1,
+        "name": "儿童内分泌科",
+        "description": "诊治儿童生长发育相关疾病，如矮小症、性早熟等"
+      },
+      {
+        "id": 2,
+        "name": "儿童保健科",
+        "description": "儿童健康体检和发育评估"
+      }
+    ]
   }
 }
 ```

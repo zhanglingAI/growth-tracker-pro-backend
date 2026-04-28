@@ -22,36 +22,20 @@ func (b *BaseModel) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// User 用户模型
-type User struct {
-	BaseModel   `gorm:"embedded"`
-	OpenID      string    `gorm:"type:varchar(128);uniqueIndex;not null" json:"open_id"` // 微信OpenID
-	NickName    string    `gorm:"type:varchar(64)" json:"nick_name"`
-	AvatarURL   string    `gorm:"type:varchar(512)" json:"avatar_url"`
-	Phone       string    `gorm:"type:varchar(20)" json:"phone"`
-	Settings    string    `gorm:"type:text" json:"settings"` // JSON字符串
-	Children    []Child   `gorm:"foreignKey:UserID" json:"children,omitempty"`
-	FamilyID    *string   `gorm:"type:varchar(36)" json:"family_id,omitempty"`
-	Family      *Family   `gorm:"foreignKey:FamilyID" json:"family,omitempty"`
-	Subscription *Subscription `gorm:"foreignKey:UserID" json:"subscription,omitempty"`
-}
-
-// TableName 表名
-func (User) TableName() string {
-	return "users"
-}
-
 // Child 宝宝模型
 type Child struct {
 	BaseModel    `gorm:"embedded"`
 	UserID       string    `gorm:"type:varchar(36);index;not null" json:"user_id"`
-	Name         string    `gorm:"type:varchar(64);not null" json:"name"`
+	FamilyID     *uint     `gorm:"index" json:"family_id,omitempty"`
+	Nickname     string    `gorm:"type:varchar(50);not null" json:"nickname"`
 	Gender       string    `gorm:"type:varchar(10);not null" json:"gender"` // male/female
 	Birthday     time.Time `gorm:"type:date;not null" json:"birthday"`
+	InitialHeight float64  `gorm:"type:decimal(5,1)" json:"initial_height"`
+	InitialWeight *float64 `gorm:"type:decimal(5,1)" json:"initial_weight"`
 	FatherHeight float64   `gorm:"type:decimal(5,1)" json:"father_height"`
 	MotherHeight float64   `gorm:"type:decimal(5,1)" json:"mother_height"`
-	IsActive     bool      `gorm:"default:true" json:"is_active"`
-	Records      []Record  `gorm:"foreignKey:ChildID" json:"records,omitempty"`
+	StandardType string    `gorm:"type:varchar(10);default:'cn'" json:"standard_type"`
+	Records      []GrowthRecord `gorm:"foreignKey:ChildID" json:"records,omitempty"`
 }
 
 // AgeInDays 计算年龄天数
@@ -75,24 +59,29 @@ func (c *Child) CalculateAge(at time.Time) (years, months int) {
 	return
 }
 
-// Record 生长记录模型
-type Record struct {
+// GrowthRecord 生长记录模型 (兼容 Record)
+type GrowthRecord struct {
 	BaseModel  `gorm:"embedded"`
 	ChildID    string    `gorm:"type:varchar(36);index;not null" json:"child_id"`
+	MeasureDate time.Time `gorm:"type:date;index;not null" json:"measure_date"`
 	Height     float64   `gorm:"type:decimal(5,1);not null" json:"height"`     // 身高 cm
-	Weight     float64   `gorm:"type:decimal(5,1);not null" json:"weight"`    // 体重 kg
-	Date       time.Time `gorm:"type:date;index;not null" json:"date"`
-	AgeStr     string    `gorm:"type:varchar(20)" json:"age_str"`    // 年龄字符串
-	AgeInDays  int       `gorm:"type:int" json:"age_in_days"`        // 年龄天数
-	Note       string    `gorm:"type:text" json:"note"`             // 备注
-	Photo      string    `gorm:"type:varchar(512)" json:"photo"`    // 照片URL
-	CreatorID  string    `gorm:"type:varchar(36)" json:"creator_id"` // 创建者ID
+	Weight     *float64  `gorm:"type:decimal(5,1)" json:"weight"`             // 体重 kg
+	HeightPercentile *float64 `gorm:"type:decimal(5,2)" json:"height_percentile"`
+	WeightPercentile *float64 `gorm:"type:decimal(5,2)" json:"weight_percentile"`
+	HeightZScore     *float64 `gorm:"type:decimal(5,3)" json:"height_zscore"`
+	WeightZScore     *float64 `gorm:"type:decimal(5,3)" json:"weight_zscore"`
+	HeightStatus     string   `gorm:"type:varchar(20);default:'normal'" json:"height_status"`
+	WeightStatus     string   `gorm:"type:varchar(20);default:'normal'" json:"weight_status"`
+	Remarks    string    `gorm:"type:text" json:"remarks"`             // 备注
 }
 
 // TableName 表名
-func (Record) TableName() string {
+func (GrowthRecord) TableName() string {
 	return "growth_records"
 }
+
+// Record 类型别名，保持向后兼容
+type Record = GrowthRecord
 
 // Subscription 订阅模型
 type Subscription struct {
@@ -131,45 +120,12 @@ func (s *Subscription) GetRemainingQuota() int {
 	return remaining
 }
 
-// Family 家庭模型
-type Family struct {
-	BaseModel  `gorm:"embedded"`
-	FamilyID   string    `gorm:"type:varchar(36);uniqueIndex;not null" json:"family_id"`
-	CreatorID  string    `gorm:"type:varchar(36);index" json:"creator_id"`
-	Name       string    `gorm:"type:varchar(64)" json:"name"`
-	InviteCode string    `gorm:"type:varchar(20);uniqueIndex" json:"invite_code"`
-	MaxMembers int       `gorm:"default:10" json:"max_members"`
-	Members    []FamilyMember `gorm:"foreignKey:FamilyID" json:"members,omitempty"`
-	Children   []FamilyChild  `gorm:"foreignKey:FamilyID" json:"children,omitempty"`
-}
-
-// TableName 表名
-func (Family) TableName() string {
-	return "families"
-}
-
-// FamilyMember 家庭成员
-type FamilyMember struct {
-	ID        string    `gorm:"type:varchar(36);primaryKey" json:"id"`
-	FamilyID  string    `gorm:"type:varchar(36);index;not null" json:"family_id"`
-	UserID    string    `gorm:"type:varchar(36);index;not null" json:"user_id"`
-	Name      string    `gorm:"type:varchar(64)" json:"name"`
-	Phone     string    `gorm:"type:varchar(20)" json:"phone"`
-	Role      string    `gorm:"type:varchar(20);default:viewer" json:"role"` // owner/editor/viewer
-	JoinedAt  time.Time `gorm:"autoCreateTime" json:"joined_at"`
-}
-
-// TableName 表名
-func (FamilyMember) TableName() string {
-	return "family_members"
-}
-
 // FamilyChild 家庭关联的宝宝
 type FamilyChild struct {
-	ID        string `gorm:"type:varchar(36);primaryKey" json:"id"`
-	FamilyID  string `gorm:"type:varchar(36);index;not null" json:"family_id"`
-	ChildID   string `gorm:"type:varchar(36);index;not null" json:"child_id"`
-	AddedBy   string `gorm:"type:varchar(36)" json:"added_by"`
+	ID        string    `gorm:"type:varchar(36);primaryKey" json:"id"`
+	FamilyID  string    `gorm:"type:varchar(36);index;not null" json:"family_id"`
+	ChildID   string    `gorm:"type:varchar(36);index;not null" json:"child_id"`
+	AddedBy   string    `gorm:"type:varchar(36)" json:"added_by"`
 	AddedAt   time.Time `gorm:"autoCreateTime" json:"added_at"`
 }
 

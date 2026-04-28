@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/growth-tracker-pro/backend/internal/models"
+	"github.com/growth-tracker-pro-backend/internal/models"
 	"gorm.io/gorm"
 )
 

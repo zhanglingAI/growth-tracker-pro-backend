@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/growth-tracker-pro/backend/internal/models"
+	"github.com/growth-tracker-pro-backend/internal/models"
 )
 
 // RecommendationEngine 推荐引擎 - 基于宝宝信息表生成个性化建议
@@ -185,7 +185,7 @@ func (e *RecommendationEngine) GenerateSummaryReport() string {
 	var sb strings.Builder
 
 	// 基础信息
-	sb.WriteString("📊 " + e.child.Name + " 生长发育综合评估报告\n\n")
+	sb.WriteString("📊 " + e.child.Nickname + " 生长发育综合评估报告\n\n")
 	sb.WriteString("═══════════════════════════════════════\n\n")
 
 	// 发育状态

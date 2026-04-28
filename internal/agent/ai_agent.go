@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/growth-tracker-pro/backend/internal/models"
-	"github.com/growth-tracker-pro/backend/internal/repository"
+	"github.com/growth-tracker-pro-backend/internal/models"
+	"github.com/growth-tracker-pro-backend/internal/repository"
 )
 
 // GrowthAgent 生长追踪AI Agent - 核心智能体

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/growth-tracker-pro/backend/internal/models"
+	"github.com/growth-tracker-pro-backend/internal/models"
 )
 
 func TestProfileBuilder_Build(t *testing.T) {

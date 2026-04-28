@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/growth-tracker-pro/backend/internal/models"
-	"github.com/growth-tracker-pro/backend/internal/service"
+	"github.com/growth-tracker-pro-backend/internal/models"
+	"github.com/growth-tracker-pro-backend/internal/service"
 )
 
 // Handler 处理程序

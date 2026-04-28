@@ -11,12 +11,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
-	"github.com/growth-tracker-pro/backend/internal/config"
-	"github.com/growth-tracker-pro/backend/internal/handler"
-	"github.com/growth-tracker-pro/backend/internal/models"
-	"github.com/growth-tracker-pro/backend/internal/repository"
-	"github.com/growth-tracker-pro/backend/internal/service"
+	"github.com/growth-tracker-pro-backend/internal/config"
+	"github.com/growth-tracker-pro-backend/internal/handler"
+	"github.com/growth-tracker-pro-backend/internal/models"
+	"github.com/growth-tracker-pro-backend/internal/service"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -37,15 +35,8 @@ func main() {
 		log.Fatalf("数据库初始化失败: %v", err)
 	}
 
-	// 初始化Redis
-	redisClient := initRedis(cfg)
-
-	// 初始化仓储
-	repo := repository.NewMySQLRepository(db)
-	cache := repository.NewRedisCache(redisClient)
-
-	// 初始化服务
-	svc := service.NewService(repo, cache, cfg)
+	// 初始化服务 (简化版，只需要db)
+	svc := service.NewService(db)
 
 	// 初始化处理器
 	h := handler.NewHandler(svc)
@@ -126,21 +117,15 @@ func autoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&models.User{},
 		&models.Child{},
-		&models.Record{},
-		&models.Subscription{},
+		&models.GrowthRecord{},
 		&models.Family{},
 		&models.FamilyMember{},
-		&models.FamilyChild{},
-		&models.LabReport{},
-		&models.AIConversation{},
+		&models.Hospital{},
+		&models.HospitalDepartment{},
+		&models.Membership{},
+		&models.UsageQuota{},
+		&models.Report{},
+		&models.SubscriptionReminder{},
 	)
 }
 
-// initRedis 初始化Redis
-func initRedis(cfg *config.Config) *redis.Client {
-	return redis.NewClient(&redis.Options{
-		Addr:     cfg.Redis.GetAddr(),
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
-	})
-}

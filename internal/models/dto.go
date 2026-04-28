@@ -186,9 +186,11 @@ type UpdateMemberRoleRequest struct {
 
 // FamilyResponse 家庭响应
 type FamilyResponse struct {
-	Family
-	MemberCount int `json:"member_count"`
-	ChildCount  int `json:"child_count"`
+	ID          uint   `json:"id"`
+	Name        string `json:"name"`
+	InviteCode  string `json:"invite_code"`
+	MemberCount int    `json:"member_count"`
+	ChildCount  int    `json:"child_count"`
 }
 
 // GenerateInviteCodeResponse 生成邀请码响应
