@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/growth-tracker-pro-backend/internal/models"
@@ -68,7 +69,7 @@ func NewService(db *gorm.DB) Service {
 func (s *growthService) Login(ctx context.Context, code string) (*models.LoginResponse, error) {
 	// 简化实现：使用code作为userID
 	user := &models.User{}
-	result := s.db.WithContext(ctx).Where("openid = ?", code).First(user)
+	result := s.db.WithContext(ctx).Where("open_id = ?", code).First(user)
 	if result.Error != nil {
 		// 创建新用户
 		user = &models.User{
@@ -82,7 +83,7 @@ func (s *growthService) Login(ctx context.Context, code string) (*models.LoginRe
 		}
 	}
 
-	token := "jwt_token_" + user.OpenID + "_" + string(rune(time.Now().Unix()))
+	token := "jwt_token_" + user.OpenID + "_" + strconv.FormatInt(time.Now().Unix(), 10)
 	return &models.LoginResponse{
 		Token:    token,
 		ExpireAt: time.Now().Add(7 * 24 * time.Hour).Unix(),
@@ -94,7 +95,7 @@ func (s *growthService) Login(ctx context.Context, code string) (*models.LoginRe
 
 func (s *growthService) GetUserInfo(ctx context.Context, userID string) (*models.User, error) {
 	user := &models.User{}
-	if err := s.db.WithContext(ctx).Where("openid = ?", userID).First(user).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("open_id = ?", userID).First(user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -117,7 +118,7 @@ func (s *growthService) UpdateUser(ctx context.Context, userID string, req *mode
 	if len(updates) == 0 {
 		return nil
 	}
-	return s.db.WithContext(ctx).Model(&models.User{}).Where("openid = ?", userID).Updates(updates).Error
+	return s.db.WithContext(ctx).Model(&models.User{}).Where("open_id = ?", userID).Updates(updates).Error
 }
 
 // ========== 宝宝 ==========
@@ -208,7 +209,7 @@ func (s *growthService) DeleteChild(ctx context.Context, userID, childID string)
 
 func (s *growthService) SwitchChild(ctx context.Context, userID, childID string) error {
 	// 简化实现：更新用户设置
-	return s.db.WithContext(ctx).Model(&models.User{}).Where("openid = ?", userID).Update("settings", `{"current_child_id":"`+childID+`"}`).Error
+	return s.db.WithContext(ctx).Model(&models.User{}).Where("open_id = ?", userID).Update("settings", `{"current_child_id":"`+childID+`"}`).Error
 }
 
 // ========== 记录 ==========
@@ -519,10 +520,13 @@ func (s *growthService) GetHomeData(ctx context.Context, userID string) (*models
 		years, months := child.CalculateAge(time.Now())
 		ageStr := ""
 		if years > 0 {
-			ageStr = string(rune('0'+years)) + "岁"
+			ageStr = strconv.Itoa(years) + "岁"
 		}
 		if months > 0 {
-			ageStr += string(rune('0'+months)) + "个月"
+			ageStr += strconv.Itoa(months) + "个月"
+		}
+		if ageStr == "" {
+			ageStr = "0个月"
 		}
 
 		resp.Baby = &models.ChildResponse{

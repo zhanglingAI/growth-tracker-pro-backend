@@ -792,9 +792,9 @@ func authMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 解析user_id
-		userID := parts[0]
-		if userID == "" || userID == "jwt_token" {
+		// 解析user_id: jwt_token_{user_id}_{timestamp} -> parts[2]
+		userID := parts[2]
+		if userID == "" || len(parts) < 3 {
 			c.JSON(http.StatusUnauthorized, models.BaseResponse{
 				Code: models.CodeUnauthorized,
 				Msg:  "无效的token",

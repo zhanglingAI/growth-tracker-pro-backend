@@ -51,10 +51,24 @@ func (Child) TableName() string {
 // CalculateAge 计算宝宝年龄
 func (c *Child) CalculateAge(at time.Time) (years, months int) {
 	years = at.Year() - c.Birthday.Year()
-	months = int(at.Sub(c.Birthday).Hours() / (24 * 30))
-	if months >= 12 {
-		years++
-		months -= 12
+	months = int(at.Month()) - int(c.Birthday.Month())
+
+	if months < 0 {
+		years--
+		months += 12
+	}
+
+	if at.Day() < c.Birthday.Day() {
+		months--
+		if months < 0 {
+			years--
+			months = 11
+		}
+	}
+
+	if years < 0 {
+		years = 0
+		months = 0
 	}
 	return
 }

@@ -22,7 +22,11 @@ import (
 
 func main() {
 	// 加载配置
-	cfg := config.LoadDefault()
+	cfg, err := config.Load("config.yaml")
+	if err != nil {
+		log.Printf("警告: 无法加载配置文件, 使用默认配置: %v", err)
+		cfg = config.LoadDefault()
+	}
 
 	// 设置Gin模式
 	if cfg.Server.Mode == "release" {
@@ -125,6 +129,7 @@ func autoMigrate(db *gorm.DB) error {
 		&models.Membership{},
 		&models.UsageQuota{},
 		&models.Report{},
+		&models.Subscription{},
 		&models.SubscriptionReminder{},
 	)
 }
