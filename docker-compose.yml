@@ -1,6 +1,30 @@
 version: '3.8'
 
 services:
+  mysql:
+    image: m.daocloud.io/docker.io/library/mysql:8.0
+    container_name: growth-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: growth_tracker
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    restart: unless-stopped
+    networks:
+      - growth-network
+
+  redis:
+    image: m.daocloud.io/docker.io/library/redis:7-alpine
+    container_name: growth-redis
+    ports:
+      - "6380:6379"
+    restart: unless-stopped
+    networks:
+      - growth-network
+
   backend:
     build:
       context: .
@@ -8,17 +32,9 @@ services:
     container_name: growth-tracker-backend
     ports:
       - "8080:8080"
-    environment:
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - JWT_SECRET=${JWT_SECRET}
-      - AI_PROVIDER=${AI_PROVIDER}
-      - AI_API_KEY=${AI_API_KEY}
+    depends_on:
+      - mysql
+      - redis
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
@@ -28,49 +44,9 @@ services:
     networks:
       - growth-network
 
-  # Optional: MySQL database
-  db:
-    image: mysql:8.0
-    container_name: growth-tracker-mysql
-    environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${DB_NAME}
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_PASSWORD=${DB_PASSWORD}
-    volumes:
-      - mysql_data:/var/lib/mysql
-    ports:
-      - "3306:3306"
-    restart: unless-stopped
-    networks:
-      - growth-network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Optional: Redis cache
-  redis:
-    image: redis:7-alpine
-    container_name: growth-tracker-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
-    networks:
-      - growth-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+volumes:
+  mysql-data:
 
 networks:
   growth-network:
     driver: bridge
-
-volumes:
-  mysql_data:
-  redis_data:
