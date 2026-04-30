@@ -20,7 +20,7 @@ type Service interface {
 	UpdateUser(ctx context.Context, userID string, req *models.UpdateUserRequest) error
 
 	// 宝宝
-	GetChildren(ctx context.Context, userID string) ([]models.Child, error)
+	GetChildren(ctx context.Context, userID string) ([]models.ChildResponse, error)
 	CreateChild(ctx context.Context, userID string, req *models.CreateChildRequest) (*models.Child, error)
 	GetChildDetail(ctx context.Context, userID, childID string) (*models.ChildResponse, error)
 	UpdateChild(ctx context.Context, userID, childID string, req *models.UpdateChildRequest) error
@@ -73,10 +73,8 @@ func (s *growthService) Login(ctx context.Context, code string) (*models.LoginRe
 	if result.Error != nil {
 		// 创建新用户
 		user = &models.User{
-			OpenID:    code,
-			Nickname:  "新用户",
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			OpenID:   code,
+			NickName: "新用户",
 		}
 		if err := s.db.WithContext(ctx).Create(user).Error; err != nil {
 			return nil, err
@@ -107,10 +105,10 @@ func (s *growthService) GetUserInfo(ctx context.Context, userID string) (*models
 func (s *growthService) UpdateUser(ctx context.Context, userID string, req *models.UpdateUserRequest) error {
 	updates := map[string]interface{}{}
 	if req.NickName != "" {
-		updates["nickname"] = req.NickName
+		updates["nick_name"] = req.NickName
 	}
 	if req.AvatarURL != "" {
-		updates["avatar"] = req.AvatarURL
+		updates["avatar_url"] = req.AvatarURL
 	}
 	if req.Phone != "" {
 		updates["phone"] = req.Phone
@@ -123,10 +121,42 @@ func (s *growthService) UpdateUser(ctx context.Context, userID string, req *mode
 
 // ========== 宝宝 ==========
 
-func (s *growthService) GetChildren(ctx context.Context, userID string) ([]models.Child, error) {
+func (s *growthService) GetChildren(ctx context.Context, userID string) ([]models.ChildResponse, error) {
 	var children []models.Child
-	err := s.db.WithContext(ctx).Where("user_id = ?", userID).Order("created_at desc").Find(&children).Error
-	return children, err
+	if err := s.db.WithContext(ctx).Where("user_id = ?", userID).Order("created_at desc").Find(&children).Error; err != nil {
+		return nil, err
+	}
+
+	result := make([]models.ChildResponse, len(children))
+	for i, child := range children {
+		// 计算年龄
+		years, months := child.CalculateAge(time.Now())
+		ageStr := ""
+		if years > 0 {
+			ageStr = strconv.Itoa(years) + "岁"
+		}
+		if months > 0 {
+			ageStr += strconv.Itoa(months) + "个月"
+		}
+		if ageStr == "" {
+			ageStr = "0个月"
+		}
+
+		// 获取最新记录
+		var latestRecord models.GrowthRecord
+		s.db.WithContext(ctx).Where("child_id = ?", child.ID).Order("measure_date desc").First(&latestRecord)
+
+		result[i] = models.ChildResponse{
+			Child:        child,
+			AgeStr:       ageStr,
+			LatestRecord: &latestRecord,
+		}
+		if latestRecord.ID == "" {
+			result[i].LatestRecord = nil
+		}
+	}
+
+	return result, nil
 }
 
 func (s *growthService) CreateChild(ctx context.Context, userID string, req *models.CreateChildRequest) (*models.Child, error) {
@@ -165,17 +195,25 @@ func (s *growthService) GetChildDetail(ctx context.Context, userID, childID stri
 	years, months := child.CalculateAge(time.Now())
 	ageStr := ""
 	if years > 0 {
-		ageStr = string(rune('0'+years)) + "岁"
+		ageStr = strconv.Itoa(years) + "岁"
 	}
 	if months > 0 {
-		ageStr += string(rune('0'+months)) + "个月"
+		ageStr += strconv.Itoa(months) + "个月"
+	}
+	if ageStr == "" {
+		ageStr = "0个月"
 	}
 
-	return &models.ChildResponse{
-		Child:       *child,
-		AgeStr:      ageStr,
+	resp := &models.ChildResponse{
+		Child:        *child,
+		AgeStr:       ageStr,
 		LatestRecord: &latestRecord,
-	}, nil
+	}
+	if latestRecord.ID == "" {
+		resp.LatestRecord = nil
+	}
+
+	return resp, nil
 }
 
 func (s *growthService) UpdateChild(ctx context.Context, userID, childID string, req *models.UpdateChildRequest) error {
