@@ -545,54 +545,41 @@ func (b *ProfileBuilder) calculateTargetHeight(child *models.Child) models.Targe
 func (b *ProfileBuilder) calculatePercentile(record *models.Record, child *models.Child) int {
 	height := record.Height
 	ageInDays := int(time.Since(child.Birthday).Hours() / 24)
-	ageInMonths := float64(ageInDays) / 30.44
+	ageInMonths := int(float64(ageInDays) / 30.44)
 
-	var median50 float64
-	if child.Gender == "male" {
-		median50 = 76 + ageInMonths*0.65
-	} else {
-		median50 = 75 + ageInMonths*0.62
-	}
-
-	ratio := height / median50
-
-	if ratio >= 1.15 {
-		return 97
-	} else if ratio >= 1.10 {
-		return 85
-	} else if ratio >= 1.05 {
-		return 75
-	} else if ratio >= 1.0 {
-		return 50
-	} else if ratio >= 0.95 {
-		return 25
-	} else if ratio >= 0.90 {
-		return 10
-	} else if ratio >= 0.85 {
-		return 5
-	}
-	return 3
+	// 使用中国儿童生长标准计算
+	return models.CalculateHeightPercentile(height, ageInMonths, child.Gender)
 }
 
 func (b *ProfileBuilder) determinePercentileStatus(percentile int, target models.TargetHeightInfo, currentHeight float64) string {
-	_ = target
-	_ = currentHeight
-	if percentile >= 3 && percentile <= 97 {
-		return "normal"
-	} else if percentile < 3 {
-		return "warning"
-	}
-	return "attention"
+	level := models.GetHeightPercentileLevel(percentile)
+	return level
 }
 
 func (b *ProfileBuilder) determineGrowthStatus(percentile int, currentHeight float64, target models.TargetHeightInfo) string {
-	if percentile >= 15 && percentile <= 85 {
-		return "normal"
+	// 基于百分位和靶身高综合判断
+	targetDeviation := (currentHeight - target.MinHeight) / (target.MaxHeight - target.MinHeight)
+
+	if percentile < 3 {
+		return "严重偏低"
+	} else if percentile < 10 {
+		if targetDeviation < 0 {
+			return "生长缓慢"
+		}
+		return "偏矮"
+	} else if percentile < 25 {
+		if targetDeviation < -0.3 {
+			return "生长偏慢"
+		}
+		return "正常"
+	} else if percentile < 75 {
+		return "正常"
+	} else if percentile < 90 {
+		return "良好"
+	} else if percentile < 97 {
+		return "优秀"
 	}
-	if currentHeight < target.MinHeight {
-		return "slow"
-	}
-	return "attention"
+	return "超高"
 }
 
 func (b *ProfileBuilder) assessMeasurementFrequency(records []models.Record) string {

@@ -153,6 +153,25 @@ func (s *growthService) GetChildren(ctx context.Context, userID string) ([]model
 		}
 		if latestRecord.ID == "" {
 			result[i].LatestRecord = nil
+		} else {
+			// 计算身高百分位
+			ageInMonths := years*12 + months
+			percentile := models.CalculateHeightPercentile(latestRecord.Height, ageInMonths, child.Gender)
+			result[i].Percentile = percentile
+			result[i].GrowthStatus = models.GetHeightPercentileStatus(percentile)
+		}
+
+		// 计算靶身高
+		targetHeight := (child.FatherHeight + child.MotherHeight) / 2
+		if child.Gender == "male" {
+			targetHeight += 6.5
+		} else {
+			targetHeight -= 6.5
+		}
+		result[i].TargetHeight = models.TargetHeightInfo{
+			TargetHeight: models.Round(targetHeight, 1),
+			MinHeight:    models.Round(targetHeight-8, 1),
+			MaxHeight:    models.Round(targetHeight+8, 1),
 		}
 	}
 
@@ -211,6 +230,25 @@ func (s *growthService) GetChildDetail(ctx context.Context, userID, childID stri
 	}
 	if latestRecord.ID == "" {
 		resp.LatestRecord = nil
+	} else {
+		// 计算身高百分位
+		ageInMonths := years*12 + months
+		percentile := models.CalculateHeightPercentile(latestRecord.Height, ageInMonths, child.Gender)
+		resp.Percentile = percentile
+		resp.GrowthStatus = models.GetHeightPercentileStatus(percentile)
+	}
+
+	// 计算靶身高
+	targetHeight := (child.FatherHeight + child.MotherHeight) / 2
+	if child.Gender == "male" {
+		targetHeight += 6.5 // 男童 +6.5cm
+	} else {
+		targetHeight -= 6.5 // 女童 -6.5cm
+	}
+	resp.TargetHeight = models.TargetHeightInfo{
+		TargetHeight: models.Round(targetHeight, 1),
+		MinHeight:    models.Round(targetHeight-8, 1),
+		MaxHeight:    models.Round(targetHeight+8, 1),
 	}
 
 	return resp, nil
