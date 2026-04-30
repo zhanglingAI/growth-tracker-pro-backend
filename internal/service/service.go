@@ -20,7 +20,7 @@ type Service interface {
 	UpdateUser(ctx context.Context, userID string, req *models.UpdateUserRequest) error
 
 	// 宝宝
-	GetChildren(ctx context.Context, userID string) ([]models.ChildResponse, error)
+	GetChildren(ctx context.Context, userID string) (*models.PageResponse, error)
 	CreateChild(ctx context.Context, userID string, req *models.CreateChildRequest) (*models.Child, error)
 	GetChildDetail(ctx context.Context, userID, childID string) (*models.ChildResponse, error)
 	UpdateChild(ctx context.Context, userID, childID string, req *models.UpdateChildRequest) error
@@ -121,7 +121,7 @@ func (s *growthService) UpdateUser(ctx context.Context, userID string, req *mode
 
 // ========== 宝宝 ==========
 
-func (s *growthService) GetChildren(ctx context.Context, userID string) ([]models.ChildResponse, error) {
+func (s *growthService) GetChildren(ctx context.Context, userID string) (*models.PageResponse, error) {
 	var children []models.Child
 	if err := s.db.WithContext(ctx).Where("user_id = ?", userID).Order("created_at desc").Find(&children).Error; err != nil {
 		return nil, err
@@ -175,7 +175,12 @@ func (s *growthService) GetChildren(ctx context.Context, userID string) ([]model
 		}
 	}
 
-	return result, nil
+	return &models.PageResponse{
+		Items:    result,
+		Total:    int64(len(result)),
+		Page:     1,
+		PageSize: len(result),
+	}, nil
 }
 
 func (s *growthService) CreateChild(ctx context.Context, userID string, req *models.CreateChildRequest) (*models.Child, error) {
@@ -186,7 +191,7 @@ func (s *growthService) CreateChild(ctx context.Context, userID string, req *mod
 
 	child := &models.Child{
 		UserID:        userID,
-		Nickname:      req.Name,
+		Nickname:      req.Nickname,
 		Gender:        req.Gender,
 		Birthday:      birthday,
 		FatherHeight:  req.FatherHeight,
@@ -256,8 +261,8 @@ func (s *growthService) GetChildDetail(ctx context.Context, userID, childID stri
 
 func (s *growthService) UpdateChild(ctx context.Context, userID, childID string, req *models.UpdateChildRequest) error {
 	updates := map[string]interface{}{}
-	if req.Name != "" {
-		updates["nickname"] = req.Name
+	if req.Nickname != "" {
+		updates["nickname"] = req.Nickname
 	}
 	if req.Gender != "" {
 		updates["gender"] = req.Gender
@@ -291,6 +296,12 @@ func (s *growthService) SwitchChild(ctx context.Context, userID, childID string)
 // ========== 记录 ==========
 
 func (s *growthService) GetRecords(ctx context.Context, childID string, req *models.RecordListRequest) (*models.PageResponse, error) {
+	// 获取宝宝生日
+	var child models.Child
+	if err := s.db.WithContext(ctx).Select("birthday").Where("id = ?", childID).First(&child).Error; err != nil {
+		return nil, err
+	}
+
 	query := s.db.WithContext(ctx).Model(&models.GrowthRecord{}).Where("child_id = ?", childID)
 
 	if req.StartDate != "" {
@@ -313,12 +324,59 @@ func (s *growthService) GetRecords(ctx context.Context, childID string, req *mod
 		return nil, err
 	}
 
+	// 为每条记录计算 age_str
+	recordResponses := make([]models.RecordResponse, len(records))
+	for i, record := range records {
+		ageStr := calculateAgeString(child.Birthday, record.MeasureDate)
+		recordResponses[i] = models.RecordResponse{
+			GrowthRecord: record,
+			AgeStr:       ageStr,
+		}
+	}
+
 	return &models.PageResponse{
-		Items:    records,
+		Items:    recordResponses,
 		Total:    total,
 		Page:     req.Page,
 		PageSize: req.PageSize,
 	}, nil
+}
+
+// calculateAgeString 计算两个日期之间的年龄字符串: "X岁X个月" / "X个月" / "X天"
+func calculateAgeString(birthday, measureDate time.Time) string {
+	years := measureDate.Year() - birthday.Year()
+	months := int(measureDate.Month()) - int(birthday.Month())
+
+	if months < 0 {
+		years--
+		months += 12
+	}
+
+	if measureDate.Day() < birthday.Day() {
+		months--
+		if months < 0 {
+			years--
+			months += 12
+		}
+	}
+
+	// 小于1个月，显示天数
+	if years == 0 && months == 0 {
+		days := int(measureDate.Sub(birthday).Hours() / 24)
+		if days <= 0 {
+			days = 1
+		}
+		return strconv.Itoa(days) + "天"
+	}
+
+	ageStr := ""
+	if years > 0 {
+		ageStr = strconv.Itoa(years) + "岁"
+	}
+	if months > 0 {
+		ageStr += strconv.Itoa(months) + "个月"
+	}
+	return ageStr
 }
 
 func (s *growthService) CreateRecord(ctx context.Context, userID string, req *models.CreateRecordRequest) (*models.GrowthRecord, error) {
@@ -603,9 +661,15 @@ func (s *growthService) GetHomeData(ctx context.Context, userID string) (*models
 	}
 
 	resp := &models.HomeDataResponse{
-		HasBaby:    len(children) > 0,
-		IsVip:      false,
+		HasBaby:     len(children) > 0,
+		IsVip:       false,
 		AIRemaining: 3,
+	}
+
+	// 订阅信息
+	resp.Subscription = &models.SubscriptionInfo{
+		IsActive:       false,
+		RemainingQuota: 3,
 	}
 
 	if len(children) > 0 {
@@ -622,16 +686,52 @@ func (s *growthService) GetHomeData(ctx context.Context, userID string) (*models
 			ageStr = "0个月"
 		}
 
-		resp.Baby = &models.ChildResponse{
-			Child:  *child,
-			AgeStr: ageStr,
+		// 计算靶身高和百分位
+		targetHeight := (child.FatherHeight + child.MotherHeight) / 2
+		if child.Gender == "male" {
+			targetHeight += 6.5
+		} else {
+			targetHeight -= 6.5
 		}
 
-		// 获取最新记录
-		var latestRecord models.GrowthRecord
-		s.db.WithContext(ctx).Where("child_id = ?", child.ID).Order("measure_date desc").First(&latestRecord)
-		if latestRecord.ID != "" {
-			resp.LatestRecord = &latestRecord
+		resp.Baby = &models.ChildResponse{
+			Child:    *child,
+			AgeStr:   ageStr,
+			TargetHeight: models.TargetHeightInfo{
+				TargetHeight: models.Round(targetHeight, 1),
+				MinHeight:    models.Round(targetHeight-8, 1),
+				MaxHeight:    models.Round(targetHeight+8, 1),
+			},
+		}
+
+		// 获取最近20条记录（带age_str）
+		var records []models.GrowthRecord
+		var total int64
+		s.db.WithContext(ctx).Model(&models.GrowthRecord{}).Where("child_id = ?", child.ID).Count(&total)
+		s.db.WithContext(ctx).Where("child_id = ?", child.ID).Order("measure_date desc").Limit(20).Find(&records)
+
+		recordResponses := make([]models.RecordResponse, len(records))
+		for i, record := range records {
+			ageStr := calculateAgeString(child.Birthday, record.MeasureDate)
+			recordResponses[i] = models.RecordResponse{
+				GrowthRecord: record,
+				AgeStr:       ageStr,
+			}
+		}
+
+		resp.Records = &models.HomeRecordsResponse{
+			Items:    recordResponses,
+			Total:    total,
+			Page:     1,
+			PageSize: 20,
+		}
+
+		// 计算最新记录的百分位
+		if len(records) > 0 {
+			ageInMonths := years*12 + months
+			percentile := models.CalculateHeightPercentile(records[0].Height, ageInMonths, child.Gender)
+			resp.Baby.Percentile = percentile
+			resp.Baby.GrowthStatus = models.GetHeightPercentileStatus(percentile)
 		}
 	}
 

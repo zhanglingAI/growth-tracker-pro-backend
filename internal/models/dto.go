@@ -49,7 +49,7 @@ type UpdateUserSettingsRequest struct {
 
 // CreateChildRequest 创建宝宝
 type CreateChildRequest struct {
-	Name         string  `json:"name" binding:"required,max=64"`
+	Nickname     string  `json:"nickname" binding:"required,max=64"` // 宝宝昵称，与响应字段统一
 	Gender       string  `json:"gender" binding:"required,oneof=male female"`
 	Birthday     string  `json:"birthday" binding:"required"`
 	FatherHeight float64 `json:"father_height" binding:"required,min=100,max=250"`
@@ -58,7 +58,7 @@ type CreateChildRequest struct {
 
 // UpdateChildRequest 更新宝宝信息
 type UpdateChildRequest struct {
-	Name         string  `json:"name"`
+	Nickname     string  `json:"nickname"` // 宝宝昵称
 	Gender       string  `json:"gender"`
 	Birthday     string  `json:"birthday"`
 	FatherHeight float64 `json:"father_height"`
@@ -117,9 +117,15 @@ type UpdateRecordRequest struct {
 	Photo  string  `json:"photo"`
 }
 
+// RecordResponse 记录响应(含年龄)
+type RecordResponse struct {
+	GrowthRecord
+	AgeStr string `json:"age_str"` // 测量时的年龄: "3岁2个月"
+}
+
 // RecordListRequest 记录列表请求
 type RecordListRequest struct {
-	ChildID string `form:"child_id"`
+	ChildID   string `form:"child_id"`
 	StartDate string `form:"start_date"`
 	EndDate   string `form:"end_date"`
 	Page     int    `form:"page,default=1"`
@@ -250,21 +256,29 @@ type KeyIndicator struct {
 
 // ========== 首页数据 ==========
 
+// SubscriptionInfo 订阅信息
+type SubscriptionInfo struct {
+	IsActive        bool   `json:"is_active"`
+	RemainingQuota  int    `json:"remaining_quota"`
+	ExpireTime     string `json:"expire_time,omitempty"`
+}
+
+// HomeRecordsResponse 首页记录列表
+type HomeRecordsResponse struct {
+	Items    []RecordResponse `json:"items"`
+	Total    int64            `json:"total"`
+	Page     int              `json:"page"`
+	PageSize int              `json:"page_size"`
+}
+
 // HomeDataResponse 首页数据响应
 type HomeDataResponse struct {
-	Baby               *ChildResponse     `json:"baby,omitempty"`
-	HasBaby            bool               `json:"has_baby"`
-	Records            []Record           `json:"records,omitempty"`
-	LatestRecord       *Record            `json:"latest_record,omitempty"`
-	TargetHeight       float64            `json:"target_height"`
-	TargetHeightMin    float64            `json:"target_height_min"`
-	TargetHeightMax    float64            `json:"target_height_max"`
-	Percentile         int                `json:"percentile"`
-	GrowthStatus       string             `json:"growth_status"`
-	InterventionWindow *InterventionInfo  `json:"intervention_window,omitempty"`
-	IsVip              bool               `json:"is_vip"`
-	AIRemaining        int                `json:"ai_remaining"`
-	ChartData          *ChartData         `json:"chart_data,omitempty"`
+	Baby         *ChildResponse      `json:"baby,omitempty"`
+	HasBaby      bool                `json:"has_baby"`
+	Records      *HomeRecordsResponse `json:"records,omitempty"`
+	Subscription *SubscriptionInfo   `json:"subscription,omitempty"`
+	IsVip        bool                `json:"is_vip"`
+	AIRemaining  int                 `json:"ai_remaining"`
 }
 
 // ChartData 图表数据
