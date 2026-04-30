@@ -76,8 +76,8 @@ func (c *Child) CalculateAge(at time.Time) (years, months int) {
 // GrowthRecord 生长记录模型 (兼容 Record)
 type GrowthRecord struct {
 	BaseModel  `gorm:"embedded"`
-	ChildID    string    `gorm:"type:varchar(36);index;not null" json:"child_id"`
-	MeasureDate time.Time `gorm:"type:date;index;not null" json:"measure_date"`
+	ChildID    string    `gorm:"type:varchar(36);index;uniqueIndex:idx_child_date;not null" json:"child_id"`
+	MeasureDate time.Time `gorm:"type:date;index:idx_measure_date;uniqueIndex:idx_child_date;not null" json:"measure_date"`
 	Height     float64   `gorm:"type:decimal(5,1);not null" json:"height"`     // 身高 cm
 	Weight     *float64  `gorm:"type:decimal(5,1)" json:"weight"`             // 体重 kg
 	HeightPercentile *float64 `gorm:"type:decimal(5,2)" json:"height_percentile"`

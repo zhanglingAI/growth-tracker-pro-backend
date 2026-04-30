@@ -47,10 +47,8 @@ func main() {
 
 	// 创建Gin引擎
 	r := gin.New()
-	r.Use(gin.Logger())
-	r.Use(gin.Recovery())
 
-	// 注册路由
+	// 注册路由 (中间件在RegisterRoutes中统一注册)
 	h.RegisterRoutes(r)
 
 	// 创建HTTP服务器

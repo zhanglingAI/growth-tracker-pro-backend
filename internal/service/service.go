@@ -246,9 +246,26 @@ func (s *growthService) GetRecords(ctx context.Context, childID string, req *mod
 }
 
 func (s *growthService) CreateRecord(ctx context.Context, userID string, req *models.CreateRecordRequest) (*models.GrowthRecord, error) {
+	// 验证宝宝属于该用户
+	var child models.Child
+	if err := s.db.WithContext(ctx).Where("id = ? AND user_id = ?", req.ChildID, userID).First(&child).Error; err != nil {
+		return nil, errors.New("宝宝不存在或无权限")
+	}
+
 	measureDate, err := time.Parse("2006-01-02", req.Date)
 	if err != nil {
 		return nil, err
+	}
+
+	// 幂等性检查：同一天不能有两条记录
+	var existingCount int64
+	if err := s.db.WithContext(ctx).Model(&models.GrowthRecord{}).
+		Where("child_id = ? AND measure_date = ?", req.ChildID, measureDate).
+		Count(&existingCount).Error; err != nil {
+		return nil, err
+	}
+	if existingCount > 0 {
+		return nil, errors.New("该日期已有记录，请选择其他日期或更新现有记录")
 	}
 
 	record := &models.GrowthRecord{
