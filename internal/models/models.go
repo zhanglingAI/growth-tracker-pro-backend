@@ -188,13 +188,14 @@ func (AIConversation) TableName() string {
 
 // ========== 预警相关常量 ==========
 const (
-	AlertTargetGapLow    = "target_gap_low"
-	AlertRegionalShort   = "regional_short"
-	AlertBoneAgeAdvanced = "bone_age_advanced"
-	AlertBoneAgeDelayed  = "bone_age_delayed"
-	AlertStagnation      = "growth_stagnation"
-	AlertVelocitySlow    = "velocity_slow"
-	AlertPercentileDrop  = "percentile_drop"
+	AlertTargetGapLow       = "target_gap_low"
+	AlertTargetHeightAdv    = "target_height_advanced"
+	AlertRegionalShort      = "regional_short"
+	AlertBoneAgeAdvanced    = "bone_age_advanced"
+	AlertBoneAgeDelayed     = "bone_age_delayed"
+	AlertStagnation         = "growth_stagnation"
+	AlertVelocitySlow       = "velocity_slow"
+	AlertPercentileDrop     = "percentile_drop"
 )
 
 // HeightAlert 身高异常预警记录

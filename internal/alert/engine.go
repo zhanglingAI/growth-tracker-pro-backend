@@ -41,6 +41,7 @@ func (e *Engine) Evaluate(input *Input) []*models.HeightAlert {
 	}
 
 	alerts = append(alerts, e.checkTargetGap(input)...)
+	alerts = append(alerts, e.checkTargetHeightAdvanced(input)...)
 	alerts = append(alerts, e.checkRegionalDeviation(input)...)
 	alerts = append(alerts, e.checkBoneAgeDeviation(input)...)
 	alerts = append(alerts, e.checkStagnation(input)...)
@@ -260,6 +261,54 @@ func (e *Engine) checkTargetGap(input *Input) []*models.HeightAlert {
 	}
 
 	return alerts
+}
+
+// 维度1.5: 靶身高达成比例过高（身高超前预警）
+// 儿童年龄较小但已达成大部分靶身高，提示关注早熟风险
+func (e *Engine) checkTargetHeightAdvanced(input *Input) []*models.HeightAlert {
+	if input.LatestRecord == nil || input.LatestRecord.ID == "" {
+		return nil
+	}
+
+	ageInYears := ageInYears(input.Child)
+	achievement := models.CalculateTargetHeightAchievement(input.LatestRecord.Height, input.TargetHeight)
+
+	// 判断阈值：男童<12岁，女童<10岁
+	var maxAge int
+	if input.Child.Gender == "male" {
+		maxAge = 12
+	} else {
+		maxAge = 10
+	}
+
+	if ageInYears >= maxAge || achievement < 90 {
+		return nil
+	}
+
+	triggerID := input.LatestRecord.ID
+
+	// 年龄更小且达成比例更高 = 更危险
+	var level, title, desc string
+	if achievement >= 95 && ageInYears <= maxAge-2 {
+		level = "danger"
+		title = "靶身高提前达成，警惕早熟"
+		desc = fmt.Sprintf("当前身高%.1fcm已达成靶身高%.1fcm的%.0f%%，而年龄仅%d岁。通常该年龄段儿童靶身高达成比例应在80%%左右。强烈建议就医检查骨龄，排查性早熟可能。", input.LatestRecord.Height, input.TargetHeight.TargetHeight, achievement, ageInYears)
+	} else {
+		level = "warning"
+		title = "靶身高达成比例偏高"
+		desc = fmt.Sprintf("当前身高%.1fcm已达成靶身高%.1fcm的%.0f%%，年龄%d岁。靶身高达成比例偏高，建议关注骨龄变化，监测发育节奏。", input.LatestRecord.Height, input.TargetHeight.TargetHeight, achievement, ageInYears)
+	}
+
+	return []*models.HeightAlert{{
+		AlertType:       models.AlertTargetHeightAdv,
+		AlertLevel:      level,
+		Title:           title,
+		Description:     desc,
+		Dimension:       "target_advanced",
+		MetricValue:     floatPtr(achievement),
+		Threshold:       floatPtr(90),
+		TriggerRecordID: &triggerID,
+	}}
 }
 
 // 维度2: 区域修正后偏差

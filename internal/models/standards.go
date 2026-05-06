@@ -298,6 +298,15 @@ func GetTargetHeightPercentile(currentHeight float64, target TargetHeightInfo) i
 	return int(ratio * 100)
 }
 
+// CalculateTargetHeightAchievement 计算靶身高达成比例 (%)
+// 返回值: 当前身高 / 靶身高中位数 * 100
+func CalculateTargetHeightAchievement(currentHeight float64, target TargetHeightInfo) float64 {
+	if target.TargetHeight <= 0 {
+		return 0
+	}
+	return Round(currentHeight/target.TargetHeight*100, 1)
+}
+
 // GetHeightPotentialStatus 遗传潜力达成状态
 func GetHeightPotentialStatus(percentile int) string {
 	switch {
