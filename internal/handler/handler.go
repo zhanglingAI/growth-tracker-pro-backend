@@ -58,6 +58,25 @@ func (h *Handler) RegisterRoutes(r *gin.Engine) {
 				children.PUT("/:id", h.UpdateChild)
 				children.DELETE("/:id", h.DeleteChild)
 				children.POST("/switch", h.SwitchChild)
+				children.POST("/:id/growth-stage", h.SetGrowthStage)
+				children.GET("/:id/alerts", h.GetChildAlerts)
+
+				// 环境问卷评估
+				children.POST("/:id/environment-assessment", h.CreateEnvironmentAssessment)
+				children.GET("/:id/environment-assessment/latest", h.GetLatestEnvironmentAssessment)
+				children.GET("/:id/environment-assessment/history", h.GetEnvironmentAssessmentHistory)
+
+				// 靶身高与生长速度
+				children.GET("/:id/target-height-comparison", h.GetTargetHeightComparison)
+				children.GET("/:id/growth-velocity", h.GetGrowthVelocity)
+			}
+
+			// 预警
+			alerts := protected.Group("/alerts")
+			{
+				alerts.POST("/:alertId/read", h.MarkAlertRead)
+				alerts.POST("/:alertId/dismiss", h.DismissAlert)
+				alerts.GET("/summary", h.GetAlertsSummary)
 			}
 
 			// 记录
@@ -821,6 +840,257 @@ func splitToken(token string) []string {
 		parts = append(parts, token[start:])
 	}
 	return parts
+}
+
+// ========== 预警 ==========
+
+func (h *Handler) SetGrowthStage(c *gin.Context) {
+	userID := c.GetString("user_id")
+	childID := c.Param("id")
+
+	var req models.SetGrowthStageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.BaseResponse{
+			Code: models.CodeParamError,
+			Msg:  "参数错误: " + err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.SetGrowthStage(c.Request.Context(), userID, childID, &req); err != nil {
+		c.JSON(http.StatusInternalServerError, models.BaseResponse{
+			Code: models.CodeServerError,
+			Msg:  err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.BaseResponse{
+		Code: models.CodeSuccess,
+		Msg:  "设置成功",
+	})
+}
+
+func (h *Handler) GetChildAlerts(c *gin.Context) {
+	userID := c.GetString("user_id")
+	childID := c.Param("id")
+
+	var req models.AlertListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.BaseResponse{
+			Code: models.CodeParamError,
+			Msg:  "参数错误: " + err.Error(),
+		})
+		return
+	}
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 {
+		req.PageSize = 20
+	}
+
+	resp, err := h.service.GetChildAlerts(c.Request.Context(), userID, childID, &req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.BaseResponse{
+			Code: models.CodeServerError,
+			Msg:  err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.BaseResponse{
+		Code: models.CodeSuccess,
+		Msg:  "success",
+		Data: resp,
+	})
+}
+
+func (h *Handler) MarkAlertRead(c *gin.Context) {
+	userID := c.GetString("user_id")
+	alertID := c.Param("alertId")
+
+	if err := h.service.MarkAlertRead(c.Request.Context(), userID, alertID); err != nil {
+		c.JSON(http.StatusNotFound, models.BaseResponse{
+			Code: models.CodeNotFound,
+			Msg:  err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.BaseResponse{
+		Code: models.CodeSuccess,
+		Msg:  "标记成功",
+	})
+}
+
+func (h *Handler) DismissAlert(c *gin.Context) {
+	userID := c.GetString("user_id")
+
+	var req models.DismissAlertRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.BaseResponse{
+			Code: models.CodeParamError,
+			Msg:  "参数错误: " + err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.DismissAlert(c.Request.Context(), userID, &req); err != nil {
+		c.JSON(http.StatusNotFound, models.BaseResponse{
+			Code: models.CodeNotFound,
+			Msg:  err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.BaseResponse{
+		Code: models.CodeSuccess,
+		Msg:  "已忽略",
+	})
+}
+
+func (h *Handler) GetAlertsSummary(c *gin.Context) {
+	userID := c.GetString("user_id")
+
+	resp, err := h.service.GetAlertsSummary(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.BaseResponse{
+			Code: models.CodeServerError,
+			Msg:  err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.BaseResponse{
+		Code: models.CodeSuccess,
+		Msg:  "success",
+		Data: resp,
+	})
+}
+
+// ========== 环境问卷评估 ==========
+
+func (h *Handler) CreateEnvironmentAssessment(c *gin.Context) {
+	userID := c.GetString("user_id")
+	childID := c.Param("id")
+
+	var req models.CreateEnvironmentAssessmentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.BaseResponse{
+			Code: models.CodeParamError,
+			Msg:  "参数错误: " + err.Error(),
+		})
+		return
+	}
+
+	resp, err := h.service.CreateEnvironmentAssessment(c.Request.Context(), userID, childID, &req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.BaseResponse{
+			Code: models.CodeServerError,
+			Msg:  err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.BaseResponse{
+		Code: models.CodeSuccess,
+		Msg:  "success",
+		Data: resp,
+	})
+}
+
+func (h *Handler) GetLatestEnvironmentAssessment(c *gin.Context) {
+	userID := c.GetString("user_id")
+	childID := c.Param("id")
+
+	resp, err := h.service.GetLatestEnvironmentAssessment(c.Request.Context(), userID, childID)
+	if err != nil {
+		if err.Error() == "暂无评估记录" {
+			c.JSON(http.StatusNotFound, models.BaseResponse{
+				Code: models.CodeNotFound,
+				Msg:  err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, models.BaseResponse{
+			Code: models.CodeServerError,
+			Msg:  err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.BaseResponse{
+		Code: models.CodeSuccess,
+		Msg:  "success",
+		Data: resp,
+	})
+}
+
+func (h *Handler) GetEnvironmentAssessmentHistory(c *gin.Context) {
+	userID := c.GetString("user_id")
+	childID := c.Param("id")
+
+	page := parseInt(c.Query("page"), 1)
+	pageSize := parseInt(c.Query("page_size"), 20)
+
+	resp, err := h.service.GetEnvironmentAssessmentHistory(c.Request.Context(), userID, childID, page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.BaseResponse{
+			Code: models.CodeServerError,
+			Msg:  err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.BaseResponse{
+		Code: models.CodeSuccess,
+		Msg:  "success",
+		Data: resp,
+	})
+}
+
+// ========== 靶身高与生长速度 ==========
+
+func (h *Handler) GetTargetHeightComparison(c *gin.Context) {
+	userID := c.GetString("user_id")
+	childID := c.Param("id")
+
+	resp, err := h.service.GetTargetHeightComparison(c.Request.Context(), userID, childID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.BaseResponse{
+			Code: models.CodeServerError,
+			Msg:  err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.BaseResponse{
+		Code: models.CodeSuccess,
+		Msg:  "success",
+		Data: resp,
+	})
+}
+
+func (h *Handler) GetGrowthVelocity(c *gin.Context) {
+	userID := c.GetString("user_id")
+	childID := c.Param("id")
+	monthsBack := parseInt(c.Query("months_back"), 12)
+
+	resp, err := h.service.GetGrowthVelocity(c.Request.Context(), userID, childID, monthsBack)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.BaseResponse{
+			Code: models.CodeServerError,
+			Msg:  err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.BaseResponse{
+		Code: models.CodeSuccess,
+		Msg:  "success",
+		Data: resp,
+	})
 }
 
 // 辅助函数

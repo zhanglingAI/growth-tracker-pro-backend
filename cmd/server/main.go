@@ -129,6 +129,8 @@ func autoMigrate(db *gorm.DB) error {
 		&models.Report{},
 		&models.Subscription{},
 		&models.SubscriptionReminder{},
+		&models.HeightAlert{},
+		&models.EnvironmentAssessment{},
 	)
 }
 

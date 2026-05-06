@@ -133,8 +133,12 @@ go test ./internal/agent/
 go test -v ./...
 ```
 
-### Build Binary
+### Build Binary (Docker only - do not build locally)
 ```bash
+# Build inside Docker (preferred - uses correct Go version and proxy)
+docker compose build backend
+
+# Or build natively only if Go 1.21+ is available locally
 go build -o growth-server cmd/server/main.go
 ```
 
@@ -213,19 +217,21 @@ Tests use standard Go testing package with:
 
 ## Important Notes
 
-1. **Simplified Implementation**: The current code has simplified implementations for:
+1. **Build in Docker only**: Do not attempt to compile locally in WSL. The project should always be built inside Docker containers. WSL lacks a working Go toolchain (no local Go installation, or wrong version, or network issues with proxy.golang.org). Use `docker compose build backend` or `docker exec` to run `go build` / `go test`. This is the single source of truth for compilation success.
+
+2. **Simplified Implementation**: The current code has simplified implementations for:
    - JWT token parsing (no actual signature verification)
    - WeChat login and payment (mocked)
    - AI API calls (mock responses)
    These are placeholders - production implementations needed.
 
-2. **Family Sharing Permissions**: Family members can access shared children's data. Check `buildChildProfile()` in ai_agent.go for permission logic.
+3. **Family Sharing Permissions**: Family members can access shared children's data. Check `buildChildProfile()` in ai_agent.go for permission logic.
 
-3. **Medical Disclaimer**: The MedicalGuard component ensures AI responses don't provide medical diagnoses - only general guidance.
+4. **Medical Disclaimer**: The MedicalGuard component ensures AI responses don't provide medical diagnoses - only general guidance.
 
-4. **ID Generation**: Uses UUID for all primary keys via `BeforeCreate` hook in BaseModel.
+5. **ID Generation**: Uses UUID for all primary keys via `BeforeCreate` hook in BaseModel.
 
-5. **Date Formatting**: Uses "YYYY-MM-DD" format for all date inputs.
+6. **Date Formatting**: Uses "YYYY-MM-DD" format for all date inputs.
 
 ---
 

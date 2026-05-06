@@ -35,6 +35,10 @@ type Child struct {
 	FatherHeight float64   `gorm:"type:decimal(5,1)" json:"father_height"`
 	MotherHeight float64   `gorm:"type:decimal(5,1)" json:"mother_height"`
 	StandardType string    `gorm:"type:varchar(10);default:'cn'" json:"standard_type"`
+	Region       *string   `gorm:"type:varchar(20)" json:"region,omitempty"`
+	GrowthStage  *string   `gorm:"type:varchar(20);default:''" json:"growth_stage,omitempty"`
+	StageConfirmedAt *time.Time `gorm:"type:datetime" json:"stage_confirmed_at,omitempty"`
+	LastHeightChangeDate *time.Time `gorm:"type:date" json:"last_height_change_date,omitempty"`
 	Records      []GrowthRecord `gorm:"foreignKey:ChildID" json:"records,omitempty"`
 }
 
@@ -86,7 +90,10 @@ type GrowthRecord struct {
 	WeightZScore     *float64 `gorm:"type:decimal(5,3)" json:"weight_zscore"`
 	HeightStatus     string   `gorm:"type:varchar(20);default:'normal'" json:"height_status"`
 	WeightStatus     string   `gorm:"type:varchar(20);default:'normal'" json:"weight_status"`
-	Remarks    string    `gorm:"type:text" json:"remarks"`             // 备注
+	BoneAge         *float64 `gorm:"type:decimal(5,2)" json:"bone_age,omitempty"`
+	BoneAgeSource   *string  `gorm:"type:varchar(30)" json:"bone_age_source,omitempty"`
+	BoneAgeDiff     *float64 `gorm:"type:decimal(5,2)" json:"bone_age_diff,omitempty"`
+	Remarks         string   `gorm:"type:text" json:"remarks"`
 }
 
 // TableName 表名
@@ -177,4 +184,85 @@ type AIConversation struct {
 // TableName 表名
 func (AIConversation) TableName() string {
 	return "ai_conversations"
+}
+
+// ========== 预警相关常量 ==========
+const (
+	AlertTargetGapLow    = "target_gap_low"
+	AlertRegionalShort   = "regional_short"
+	AlertBoneAgeAdvanced = "bone_age_advanced"
+	AlertBoneAgeDelayed  = "bone_age_delayed"
+	AlertStagnation      = "growth_stagnation"
+	AlertVelocitySlow    = "velocity_slow"
+	AlertPercentileDrop  = "percentile_drop"
+)
+
+// HeightAlert 身高异常预警记录
+type HeightAlert struct {
+	BaseModel        `gorm:"embedded"`
+	ChildID          string     `gorm:"type:varchar(36);index;not null" json:"child_id"`
+	UserID           string     `gorm:"type:varchar(36);index" json:"user_id"`
+	AlertType        string     `gorm:"type:varchar(50);not null;index" json:"alert_type"`
+	AlertLevel       string     `gorm:"type:varchar(20);not null" json:"alert_level"`
+	Title            string     `gorm:"type:varchar(200);not null" json:"title"`
+	Description      string     `gorm:"type:text" json:"description"`
+	Dimension        string     `gorm:"type:varchar(30);not null" json:"dimension"`
+	MetricValue      *float64   `gorm:"type:decimal(8,3)" json:"metric_value,omitempty"`
+	Threshold        *float64   `gorm:"type:decimal(8,3)" json:"threshold,omitempty"`
+	TriggerRecordID  *string    `gorm:"type:varchar(36)" json:"trigger_record_id,omitempty"`
+	IsRead           bool       `gorm:"default:false" json:"is_read"`
+	IsDismissed      bool       `gorm:"default:false" json:"is_dismissed"`
+	ResolvedAt       *time.Time `gorm:"type:datetime" json:"resolved_at,omitempty"`
+}
+
+func (HeightAlert) TableName() string {
+	return "height_alerts"
+}
+
+// ========== 环境问卷评估记录 ==========
+
+// EnvironmentAssessment 环境问卷评估记录（存储用户提交的问卷和计算结果）
+type EnvironmentAssessment struct {
+	BaseModel    `gorm:"embedded"`
+	ChildID      string  `gorm:"type:varchar(36);index;not null" json:"child_id"`
+	UserID       string  `gorm:"type:varchar(36);index;not null" json:"user_id"`
+	AssessmentDate time.Time `gorm:"type:date;not null" json:"assessment_date"`
+
+	// 营养模块原始答案 (JSON存储)
+	NutritionRaw string `gorm:"type:text" json:"-"` // 原始JSON
+
+	// 睡眠模块原始答案
+	SleepRaw string `gorm:"type:text" json:"-"`
+
+	// 运动模块原始答案
+	ExerciseRaw string `gorm:"type:text" json:"-"`
+
+	// 健康模块原始答案
+	HealthRaw string `gorm:"type:text" json:"-"`
+
+	// 心理模块原始答案
+	MentalRaw string `gorm:"type:text" json:"-"`
+
+	// 计算得分
+	NutritionScore  float64 `gorm:"type:decimal(5,2)" json:"nutrition_score"`
+	SleepScore      float64 `gorm:"type:decimal(5,2)" json:"sleep_score"`
+	ExerciseScore   float64 `gorm:"type:decimal(5,2)" json:"exercise_score"`
+	HealthScore     float64 `gorm:"type:decimal(5,2)" json:"health_score"`
+	MentalScore     float64 `gorm:"type:decimal(5,2)" json:"mental_score"`
+	TotalScore      float64 `gorm:"type:decimal(5,2)" json:"total_score"`
+
+	// 预测结果
+	GeneticTargetHeight float64 `gorm:"type:decimal(5,1)" json:"genetic_target_height"`
+	EnvironmentIncrement float64 `gorm:"type:decimal(5,1)" json:"environment_increment"`
+	PredictedHeight     float64 `gorm:"type:decimal(5,1)" json:"predicted_height"`
+
+	// 分区
+	InterventionZone string `gorm:"type:varchar(20)" json:"intervention_zone"` // high/medium/low
+
+	// 行动计划 (JSON存储)
+	ActionPlan string `gorm:"type:text" json:"-"`
+}
+
+func (EnvironmentAssessment) TableName() string {
+	return "environment_assessments"
 }
